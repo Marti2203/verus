@@ -1620,6 +1620,23 @@ struct State {
     synthetic_assert_id_counter: u64,
 }
 
+/// Whether `id` was minted by `State::next_synthetic_assert_id` (a loop
+/// invariant/decreases check synthesized during SST->AIR lowering, with no
+/// real `ast_to_sst.rs`-assigned id behind it) rather than a genuine
+/// `StmX::Assert` node's own id. Real ids are always exactly one element
+/// (`vec![n]`); synthetic ones are always exactly two, with `u64::MAX`
+/// first - see `next_synthetic_assert_id`'s doc comment for why that shape
+/// is guaranteed collision-free.
+///
+/// Needed by callers that key off an `AssertId`'s shape and would otherwise
+/// panic on this one - confirmed directly: `--expand-errors`
+/// (`expand_errors_driver.rs`) asserts `assert_id.len() == 1` and crashes
+/// the whole process on a synthetic id, since it was never designed to
+/// receive anything but a real, one-element one.
+pub fn is_synthetic_assert_id(id: &air::ast::AssertId) -> bool {
+    matches!(id.as_slice(), [first, _] if *first == u64::MAX)
+}
+
 impl State {
     /// Loop-invariant-preservation and `decreases`-clause checks
     /// (`INV_FAIL_LOOP_END`/`INV_FAIL_LOOP_FRONT`/`DEC_FAIL_LOOP_*`) are
