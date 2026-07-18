@@ -460,6 +460,58 @@ pub open spec fn encode_utf8(chars: Seq<char>) -> Seq<u8>
     }
 }
 
+/// The real Rust `char::len_utf8()` byte width matches this module's own encoding
+/// model exactly: Rust's implementation picks a width using the identical scalar
+/// boundaries (0x80, 0x800, 0x10000) that [`has_width_1_encoding`] et al. already
+/// define, and a `char` can never be a surrogate (excluded by the type itself), so
+/// [`encode_scalar`]'s surrogate exclusion never actually applies to a real `char`.
+/// This is the one link needed to connect [`encode_utf8`]/`str::spec_bytes()`
+/// (already trusted via `str::as_bytes`'s own `assume_specification`) to a real
+/// per-`char` byte-offset lemma - see [`lemma_encode_utf8_len_additive`].
+#[verifier::allow_in_spec]
+pub assume_specification[ char::len_utf8 ](c: char) -> usize
+    returns
+        encode_scalar(c as u32).len() as usize,
+;
+
+/// [`encode_utf8`] distributes over sequence concatenation - lets a per-`char`
+/// byte offset be computed as a running sum of [`encode_scalar`] lengths
+/// (equivalently, `c.len_utf8()`, see the `assume_specification` above) instead of
+/// needing to re-derive it from the whole-string `encode_utf8` each time.
+pub proof fn lemma_encode_utf8_len_additive(a: Seq<char>, b: Seq<char>)
+    ensures
+        encode_utf8(a + b).len() == encode_utf8(a).len() + encode_utf8(b).len(),
+    decreases a.len(),
+{
+    if a.len() == 0 {
+        assert(a + b =~= b);
+    } else {
+        assert((a + b).drop_first() =~= a.drop_first() + b);
+        lemma_encode_utf8_len_additive(a.drop_first(), b);
+    }
+}
+
+/// Convenience form of [`lemma_encode_utf8_len_additive`] for the common case
+/// of appending one more `char` - ties the byte length of `encode_utf8` on
+/// `chars.push(c)` directly to a single `char`'s own [`encode_scalar`] width
+/// (equivalently, `c.len_utf8()`, see the `char::len_utf8`
+/// `assume_specification` above).
+pub proof fn lemma_encode_utf8_push_len(chars: Seq<char>, c: char)
+    ensures
+        encode_utf8(chars.push(c)).len() == encode_utf8(chars).len() + encode_scalar(
+            c as u32,
+        ).len(),
+{
+    assert(chars.push(c) =~= chars + seq![c]);
+    lemma_encode_utf8_len_additive(chars, seq![c]);
+    assert(seq![c].drop_first() =~= Seq::<char>::empty());
+    assert(encode_utf8(Seq::<char>::empty()) =~= Seq::<u8>::empty());
+    assert(encode_utf8(seq![c]) =~= encode_scalar(c as u32) + encode_utf8(
+        Seq::<char>::empty(),
+    ));
+    assert(encode_utf8(seq![c]).len() == encode_scalar(c as u32).len());
+}
+
 /* Correspondence between encode_utf8 and decode_utf8 definitions */
 
 // Performing encode followed by decode on a scalar with a 1-byte UTF-8 encoding results in the same value.
