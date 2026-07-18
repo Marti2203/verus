@@ -97,9 +97,74 @@ fn reader_thread(
     }
 }
 
+/// The oldest Z3 version this Verus build is known to work with (the version
+/// actually bundled/tested against is 4.12.5, per
+/// `cargo-verus/toolchain-manifests/rolling-release.toml`). An incompatible,
+/// too-old Z3 doesn't fail cleanly - it hard-crashes deep inside `air`'s own
+/// response parser (`IllegalChrInString`, then a second panic in a
+/// destructor that aborts the whole process) on the very first query, with
+/// no indication Z3 itself was the actual cause. Checking this cheaply up
+/// front, before ever sending it a real query, turns that into a clear,
+/// actionable error instead.
+const MIN_SUPPORTED_Z3_VERSION: (u32, u32) = (4, 12);
+
+/// Parses a `major.minor` version pair out of `z3 --version`-style output
+/// (e.g. `"Z3 version 4.12.5 - 64 bit"`). Deliberately lenient: returns
+/// `None` (rather than guessing) for any output that doesn't contain a
+/// recognizable `\d+.\d+` token, so an unexpected output format never turns
+/// into a false-positive version-mismatch error.
+fn parse_major_minor_version(version_output: &str) -> Option<(u32, u32)> {
+    version_output.split(|c: char| c.is_whitespace() || c == '-').find_map(|token| {
+        let mut parts = token.split('.');
+        let major = parts.next()?.parse::<u32>().ok()?;
+        let minor = parts.next()?.parse::<u32>().ok()?;
+        Some((major, minor))
+    })
+}
+
+/// Runs `<executable> --version` and, if a version can be parsed and it's
+/// below `MIN_SUPPORTED_Z3_VERSION`, prints a clear error and exits - rather
+/// than letting a stale Z3 crash confusingly on the first real query. Any
+/// failure to run or parse `--version` is silently ignored (not every build
+/// of `z3`/every future version is guaranteed to format this the same way,
+/// and this check exists to add a clearer error message, not to become a new
+/// way for a perfectly good solver to be rejected).
+fn check_z3_version_or_exit(executable: &str) {
+    let Ok(output) = std::process::Command::new(executable).arg("--version").output() else {
+        return;
+    };
+    let version_output = String::from_utf8_lossy(&output.stdout);
+    let Some(found) = parse_major_minor_version(&version_output) else {
+        return;
+    };
+    if found < MIN_SUPPORTED_Z3_VERSION {
+        eprintln!(
+            "{}",
+            yansi::Paint::red(format!(
+                "error: incompatible Z3 version: found {}.{} at {} (this Verus build was tested \
+                against Z3 {}.{}.5)",
+                found.0,
+                found.1,
+                executable,
+                MIN_SUPPORTED_Z3_VERSION.0,
+                MIN_SUPPORTED_Z3_VERSION.1,
+            ))
+        );
+        eprintln!(
+            "help: point VERUS_Z3_PATH at the Z3 binary bundled with this Verus build instead \
+            (an incompatible Z3 doesn't fail cleanly - it crashes while parsing the very first \
+            query's response)"
+        );
+        std::process::exit(128);
+    }
+}
+
 impl SmtProcess {
     pub fn launch(solver: &SmtSolver, transcript_log: Option<Box<dyn std::io::Write>>) -> Self {
         let solver_info = SolverInfo::new(solver);
+        if matches!(solver, SmtSolver::Z3) {
+            check_z3_version_or_exit(&solver_info.executable());
+        }
         let mut child = match std::process::Command::new(solver_info.executable())
             .args(match solver {
                 SmtSolver::Z3 => vec!["-smt2", "-in"],
@@ -238,5 +303,49 @@ impl Drop for SmtProcess {
         if let Err(e) = self.child.wait() {
             panic!("smt process exited with error: {:?}", e);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_the_real_z3_version_output_format() {
+        assert_eq!(parse_major_minor_version("Z3 version 4.12.5 - 64 bit"), Some((4, 12)));
+        assert_eq!(parse_major_minor_version("Z3 version 4.8.7 - 64 bit"), Some((4, 8)));
+    }
+
+    #[test]
+    fn parses_a_bare_version_with_no_surrounding_text() {
+        assert_eq!(parse_major_minor_version("4.12.5"), Some((4, 12)));
+    }
+
+    #[test]
+    fn returns_none_for_unrecognizable_output_instead_of_guessing() {
+        assert_eq!(parse_major_minor_version(""), None);
+        assert_eq!(parse_major_minor_version("some completely unexpected output"), None);
+    }
+
+    #[test]
+    fn min_supported_version_is_below_the_bundled_version_and_above_the_known_bad_one() {
+        assert!(MIN_SUPPORTED_Z3_VERSION > (4, 8));
+        assert!(MIN_SUPPORTED_Z3_VERSION <= (4, 12));
+    }
+
+    #[test]
+    fn a_too_old_version_is_correctly_flagged_as_unsupported() {
+        assert!(
+            parse_major_minor_version("Z3 version 4.8.7 - 64 bit").unwrap()
+                < MIN_SUPPORTED_Z3_VERSION
+        );
+    }
+
+    #[test]
+    fn the_bundled_version_is_not_flagged_as_unsupported() {
+        assert!(
+            parse_major_minor_version("Z3 version 4.12.5 - 64 bit").unwrap()
+                >= MIN_SUPPORTED_Z3_VERSION
+        );
     }
 }
