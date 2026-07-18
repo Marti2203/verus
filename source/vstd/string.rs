@@ -132,6 +132,70 @@ pub assume_specification[ str::split_at ](s: &str, mid: usize) -> (res: (&str, &
         res.1.spec_bytes() =~= s.spec_bytes().subrange(mid as int, s.spec_bytes().len() as int),
 ;
 
+/// Whether `needle` occurs as a contiguous subsequence somewhere in
+/// `haystack` - the mathematical definition backing `str_contains_str`'s
+/// spec below.
+#[cfg(not(verus_verify_core))]
+pub open spec fn spec_str_contains(haystack: Seq<char>, needle: Seq<char>) -> bool {
+    exists|i: int|
+        0 <= i && i + needle.len() <= haystack.len() && #[trigger] haystack.subrange(
+            i,
+            i + needle.len(),
+        ) =~= needle
+}
+
+// `str::starts_with`/`ends_with`/`contains` are all generic over
+// `P: Pattern` - `assume_specification` can't retrofit a spec onto just one
+// instantiation of a generic function (confirmed directly: providing an
+// explicit `str::starts_with::<&str>` target fails with "assume_specification
+// requires function type signature to match ... exactly", since only the
+// fully generic `for<P> (&str, P) -> bool` form type-checks, and that can't
+// be given a meaningful spec - documented as Issue 7 in this project's
+// `verified/upstream-issues.md`). These are real, ordinary (non-generic)
+// wrapper functions instead - `#[verifier::external_body]`, each a literal
+// one-line passthrough to the real generic method for exactly the pattern
+// type this project's code actually uses, giving Verus code a way to reason
+// about the single most common case without needing the generic method
+// itself specced.
+#[cfg(not(verus_verify_core))]
+#[verifier::external_body]
+pub fn str_starts_with_str(s: &str, pat: &str) -> (res: bool)
+    ensures
+        res == (pat@.len() <= s@.len() && s@.subrange(0, pat@.len() as int) =~= pat@),
+{
+    s.starts_with(pat)
+}
+
+#[cfg(not(verus_verify_core))]
+#[verifier::external_body]
+pub fn str_ends_with_str(s: &str, pat: &str) -> (res: bool)
+    ensures
+        res == (pat@.len() <= s@.len() && s@.subrange(
+            s@.len() - pat@.len(),
+            s@.len() as int,
+        ) =~= pat@),
+{
+    s.ends_with(pat)
+}
+
+#[cfg(not(verus_verify_core))]
+#[verifier::external_body]
+pub fn str_ends_with_char(s: &str, c: char) -> (res: bool)
+    ensures
+        res == (s@.len() > 0 && s@[s@.len() - 1] == c),
+{
+    s.ends_with(c)
+}
+
+#[cfg(not(verus_verify_core))]
+#[verifier::external_body]
+pub fn str_contains_str(s: &str, pat: &str) -> (res: bool)
+    ensures
+        res == spec_str_contains(s@, pat@),
+{
+    s.contains(pat)
+}
+
 #[cfg(not(verus_verify_core))]
 pub assume_specification[ str::from_utf8_unchecked ](v: &[u8]) -> (res: &str)
     requires
