@@ -63,6 +63,7 @@ pub mod rust_to_vir_func;
 pub mod rust_to_vir_global;
 mod rust_to_vir_impl;
 pub mod rust_to_vir_trait;
+mod repair_emit;
 #[cfg(feature = "singular")]
 pub mod singular;
 mod spans;

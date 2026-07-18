@@ -343,6 +343,36 @@ impl<'a, 'b> FunctionOpGenerator<'a, 'b> {
         Ok(())
     }
 
+    /// Computes a single-level `vir::expand_errors::ExpansionTree` for
+    /// `assert_id` - the structural decomposition of that assertion's own
+    /// expression (splitting a conjunction, unfolding one level of a spec
+    /// function call, etc.), the same primitive `start_expand_errors_if_possible`
+    /// uses, but called exactly once rather than driven iteratively (no
+    /// re-lowering to AIR, no second Z3 query - just the tree). Used by
+    /// `--repair-emit-facts`, kept here (not duplicated) so both features
+    /// share the one place that knows how to toggle `ctx.fun` safely.
+    ///
+    /// Wrapped in `catch_unwind` since `get_expansion_ctx` panics outright on
+    /// a structurally unexpected `assert_id` - an experimental diagnostic
+    /// must never take down the whole verification run. Returns `None` on
+    /// panic, not just on a clean "not found".
+    pub fn compute_expansion_tree(
+        &mut self,
+        function: &FunctionSst,
+        func_check_sst: &Arc<FuncCheckSst>,
+        assert_id: &AssertId,
+    ) -> Option<vir::expand_errors::ExpansionTree> {
+        self.op_generator.ctx.fun = mk_fun_ctx(function, false);
+        let ctx: &vir::context::Ctx = self.op_generator.ctx;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let ectx = vir::expand_errors::get_expansion_ctx(&func_check_sst.body, assert_id);
+            let (_, tree) = vir::expand_errors::do_expansion(ctx, &ectx, func_check_sst, assert_id);
+            tree
+        }));
+        self.op_generator.ctx.fun = None;
+        result.ok()
+    }
+
     pub fn start_expand_errors_if_possible(&mut self, op: &Op, assert_id: AssertId) {
         if let Op {
             function: Some(function),

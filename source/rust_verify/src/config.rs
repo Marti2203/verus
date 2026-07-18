@@ -102,6 +102,8 @@ pub struct ArgsX {
     pub ignore_unexpected_smt: bool,
     pub allow_inline_air: bool,
     pub debugger: bool,
+    pub dump_model: bool, // Print Z3 model on verification failure (without full debugger)
+    pub repair_emit_facts: Option<String>, // Path to emit fault-localization windows as JSON
     pub profile: bool,
     pub profile_all: bool,
     pub capture_profiles: bool,
@@ -149,6 +151,8 @@ impl ArgsX {
             ignore_unexpected_smt: Default::default(),
             allow_inline_air: Default::default(),
             debugger: Default::default(),
+            dump_model: Default::default(),
+            repair_emit_facts: Default::default(),
             profile: Default::default(),
             profile_all: Default::default(),
             capture_profiles: Default::default(),
@@ -322,6 +326,7 @@ pub fn parse_args_with_imports(
     const OPT_IS_CORE: &str = "is-core";
     const OPT_IS_STDLIB_OUTSIDE_OF_CORE: &str = "is-stdlib-outside-of-core";
     const OPT_EXPAND_ERRORS: &str = "expand-errors";
+    const OPT_REPAIR_EMIT_FACTS: &str = "repair-emit-facts";
 
     const OPT_LOG_DIR: &str = "log-dir";
     const OPT_LOG_ALL: &str = "log-all";
@@ -400,6 +405,7 @@ pub fn parse_args_with_imports(
     const OPT_EXTENDED_MULTI: &str = "V";
     const EXTENDED_IGNORE_UNEXPECTED_SMT: &str = "ignore-unexpected-smt";
     const EXTENDED_DEBUG: &str = "debug";
+    const EXTENDED_DUMP_MODEL: &str = "dump-model";
     const EXTENDED_NO_SOLVER_VERSION_CHECK: &str = "no-solver-version-check";
     const EXTENDED_SPINOFF_ALL: &str = "spinoff-all";
     const EXTENDED_CAPTURE_PROFILES: &str = "capture-profiles";
@@ -412,6 +418,10 @@ pub fn parse_args_with_imports(
     const EXTENDED_KEYS: &[(&str, &str)] = &[
         (EXTENDED_IGNORE_UNEXPECTED_SMT, "Ignore unexpected SMT output"),
         (EXTENDED_DEBUG, "Enable debugging of proof failures"),
+        (
+            EXTENDED_DUMP_MODEL,
+            "Print Z3 model on verification failure (lightweight counterexamples)",
+        ),
         (
             EXTENDED_NO_SOLVER_VERSION_CHECK,
             "Skip the check that the solver has the expected version (useful to experiment with different versions of z3)",
@@ -511,6 +521,12 @@ pub fn parse_args_with_imports(
         "",
         OPT_EXPAND_ERRORS,
         "When the proof fails, try to minimize the failing predicate",
+    );
+    opts.optopt(
+        "",
+        OPT_REPAIR_EMIT_FACTS,
+        "When a proof fails, emit stepwise fault-localization windows as JSON to this path",
+        "PATH",
     );
     opts.optopt(
         "",
@@ -775,6 +791,8 @@ pub fn parse_args_with_imports(
         ignore_unexpected_smt: extended.contains_key(EXTENDED_IGNORE_UNEXPECTED_SMT),
         allow_inline_air: extended.contains_key(EXTENDED_ALLOW_INLINE_AIR),
         debugger: extended.contains_key(EXTENDED_DEBUG),
+        dump_model: extended.contains_key(EXTENDED_DUMP_MODEL),
+        repair_emit_facts: matches.opt_str(OPT_REPAIR_EMIT_FACTS),
         profile: {
             if matches.opt_present(OPT_PROFILE) {
                 if matches.opt_present(OPT_PROFILE_ALL) {

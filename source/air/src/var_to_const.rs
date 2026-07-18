@@ -219,7 +219,7 @@ fn lower_stmt(
     }
 }
 
-pub(crate) fn lower_query(query: &Query) -> (Query, Snapshots, Vec<Decl>) {
+pub fn lower_query(query: &Query) -> (Query, Snapshots, Vec<Decl>) {
     let QueryX { local, assertion } = &**query;
     let mut decls: Vec<Decl> = Vec::new();
     let mut versions: IndexMap<Ident, u32> = IndexMap::new();

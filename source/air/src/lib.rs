@@ -20,7 +20,7 @@ mod smt_verify;
 mod tests;
 mod typecheck;
 mod util;
-mod var_to_const;
+pub mod var_to_const;
 mod visitor;
 
 #[cfg(feature = "singular")]

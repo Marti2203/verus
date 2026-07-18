@@ -1611,9 +1611,53 @@ struct State {
     post_condition_info: PostConditionInfo,
     loop_infos: Vec<LoopInfo>,
     static_prelude: Vec<Stmt>,
+    /// Counter for `next_synthetic_assert_id` - see that method's doc
+    /// comment for why loop-invariant/decreases checks need their own,
+    /// freshly-minted `AssertId`s rather than forwarding one from an
+    /// existing SST node (there is none: these checks are synthesized here,
+    /// during SST->AIR lowering, not present as an explicit `StmX::Assert`
+    /// node from the user's original source).
+    synthetic_assert_id_counter: u64,
 }
 
 impl State {
+    /// Loop-invariant-preservation and `decreases`-clause checks
+    /// (`INV_FAIL_LOOP_END`/`INV_FAIL_LOOP_FRONT`/`DEC_FAIL_LOOP_*`) are
+    /// synthesized directly here, at SST->AIR lowering time - unlike an
+    /// ordinary user `assert`/`requires`/`ensures`, there's no pre-existing
+    /// `StmX::Assert` SST node (with its own `ast_to_sst.rs`-assigned
+    /// `AssertId`) to forward for these. Before this method existed, every
+    /// such site hardcoded `StmtX::Assert(None, ...)` - meaning
+    /// `default_prover_failed_assert_ids` (in `rust_verify::verifier`) never
+    /// got populated for a function whose *only* failures were
+    /// loop-invariant/decreases checks (confirmed directly: this is the
+    /// single most common Verus failure mode, and every one of its failures
+    /// silently produced zero `--repair-emit-facts` output - not a
+    /// documented "unsupported control-flow shape" limitation, an outright
+    /// missing `AssertId` this whole time).
+    ///
+    /// The returned id is guaranteed never to collide with any
+    /// `ast_to_sst.rs`-assigned id: those are always exactly
+    /// one-element `vec![n]`; this always returns a *two*-element vec
+    /// (`vec![u64::MAX, n]`), a structurally distinct shape (`Vec<u64>`
+    /// equality requires equal length) - so no cross-module counter
+    /// coordination is needed to guarantee uniqueness.
+    ///
+    /// A free function taking just `&mut u64` (the counter field alone),
+    /// not `&mut self`, deliberately - every real call site mints this id
+    /// while a `&LoopInfo` borrowed from `state.loop_infos` is still live,
+    /// and a `&mut self` method call would conflict with that (the borrow
+    /// checker rejects a whole-struct exclusive borrow while any of its
+    /// fields are already borrowed elsewhere, even though `loop_infos` and
+    /// `synthetic_assert_id_counter` are disjoint fields) - a direct,
+    /// disjoint field-projection borrow like `&mut
+    /// state.synthetic_assert_id_counter` is accepted instead.
+    fn next_synthetic_assert_id(counter: &mut u64) -> Option<air::ast::AssertId> {
+        let id = vec![u64::MAX, *counter];
+        *counter += 1;
+        Some(Arc::new(id))
+    }
+
     /// get the current sid (top of the scope stack)
     fn get_current_sid(&self) -> Ident {
         let last = self.sids.last().unwrap();
@@ -2425,7 +2469,12 @@ fn stm_to_stmts(ctx: &Ctx, state: &mut State, stm: &Stm) -> Result<Vec<Stmt>, Vi
                             and use 'ensures' for what is true at the break)";
                         error = error.secondary_label(span, msg);
                     }
-                    stmts.push(Arc::new(StmtX::Assert(None, error, None, inv.clone())));
+                    stmts.push(Arc::new(StmtX::Assert(
+                        State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter),
+                        error,
+                        None,
+                        inv.clone(),
+                    )));
                 }
                 let decrease = &loop_info.decrease;
                 if !is_break && decrease.len() > 0 {
@@ -2448,7 +2497,7 @@ fn stm_to_stmts(ctx: &Ctx, state: &mut State, stm: &Stm) -> Result<Vec<Stmt>, Vi
                     )?;
                     let expr = exp_to_expr(ctx, &dec_exp, expr_ctxt)?;
                     let error = error(&stm.span, crate::def::DEC_FAIL_LOOP_CONTINUE);
-                    let dec_stmt = StmtX::Assert(None, error, None, expr);
+                    let dec_stmt = StmtX::Assert(State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter), error, None, expr);
                     stmts.push(Arc::new(dec_stmt));
                 }
             }
@@ -2716,7 +2765,7 @@ fn stm_to_stmts(ctx: &Ctx, state: &mut State, stm: &Stm) -> Result<Vec<Stmt>, Vi
                     if let Some(msg) = msg {
                         error = error.secondary_label(span, &**msg);
                     }
-                    let inv_stmt = StmtX::Assert(None, error, None, inv.clone());
+                    let inv_stmt = StmtX::Assert(State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter), error, None, inv.clone());
                     air_body.push(Arc::new(inv_stmt));
                 }
                 if decrease.len() > 0 {
@@ -2729,7 +2778,7 @@ fn stm_to_stmts(ctx: &Ctx, state: &mut State, stm: &Stm) -> Result<Vec<Stmt>, Vi
                     )?;
                     let expr = exp_to_expr(ctx, &dec_exp, expr_ctxt)?;
                     let error = error(&stm.span, crate::def::DEC_FAIL_LOOP_END);
-                    let dec_stmt = StmtX::Assert(None, error, None, expr);
+                    let dec_stmt = StmtX::Assert(State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter), error, None, expr);
                     air_body.push(Arc::new(dec_stmt));
                 }
             }
@@ -2780,7 +2829,7 @@ fn stm_to_stmts(ctx: &Ctx, state: &mut State, stm: &Stm) -> Result<Vec<Stmt>, Vi
                     if let Some(msg) = msg {
                         error = error.secondary_label(span, &**msg);
                     }
-                    let inv_stmt = StmtX::Assert(None, error, None, inv.clone());
+                    let inv_stmt = StmtX::Assert(State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter), error, None, inv.clone());
                     stmts.push(Arc::new(inv_stmt));
                 }
             }
@@ -3086,6 +3135,7 @@ pub(crate) fn body_stm_to_air(
         },
         loop_infos: Vec::new(),
         static_prelude: mk_static_prelude(ctx, statics),
+        synthetic_assert_id_counter: 0,
     };
 
     let stm = crate::sst_vars::compute_assign_info(&mut state.assign_map, params, local_decls, stm);

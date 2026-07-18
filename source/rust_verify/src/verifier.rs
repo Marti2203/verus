@@ -1163,7 +1163,8 @@ impl Verifier {
         let mut air_context =
             air::context::Context::new(message_interface.clone(), self.args.solver);
         air_context.set_ignore_unexpected_smt(self.args.ignore_unexpected_smt);
-        air_context.set_debug(self.args.debugger);
+        // dump_model enables AIR-level debug (prints Z3 model) without VIR-level debug (which panics on assignments)
+        air_context.set_debug(self.args.debugger || self.args.dump_model);
         if let Some(profile_file_name) = profile_file_name {
             air_context.set_profile_with_logfile_name(
                 profile_file_name.to_str().expect("invalid prover log path").to_owned(),
@@ -1790,6 +1791,43 @@ impl Verifier {
                                     default_prover_failed_assert_ids[0].clone(),
                                 );
                                 flush_diagnostics_to_report = true;
+                            }
+
+                            if any_invalid && default_prover_failed_assert_ids.len() > 0 {
+                                if let Some(out_path) = &self.args.repair_emit_facts {
+                                    // Each never-reassigned parameter keeps
+                                    // exactly this incarnated form
+                                    // throughout `var_to_const` (confirmed
+                                    // directly against real
+                                    // `--repair-emit-facts` output, not
+                                    // assumed) - so these match
+                                    // `target_counterexample`'s keys with no
+                                    // further reconciliation needed.
+                                    let parameters: Vec<String> = function
+                                        .x
+                                        .pars
+                                        .iter()
+                                        .map(|p| format!("{}{}", p.x.name.0, vir::def::SUFFIX_PARAM))
+                                        .collect();
+                                    let expansion_tree = func_check_sst.as_ref().and_then(|fsst| {
+                                        function_opgen.compute_expansion_tree(
+                                            function,
+                                            fsst,
+                                            &default_prover_failed_assert_ids[0],
+                                        )
+                                    });
+                                    crate::repair_emit::emit_repair_facts(
+                                        &fun_as_friendly_rust_name(&function.x.name),
+                                        &parameters,
+                                        &commands_with_context_list,
+                                        &default_prover_failed_assert_ids,
+                                        out_path,
+                                        &mut air_context,
+                                        &*message_interface,
+                                        reporter,
+                                        expansion_tree,
+                                    );
+                                }
                             }
                         }
 

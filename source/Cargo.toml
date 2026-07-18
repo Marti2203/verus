@@ -8,6 +8,7 @@ members = [
   "cargo-verus-toolchains",
   "vir",
   "vir_macros",
+  "repair",
   "rust_verify",
   "verus",
   "rust_verify_test",
@@ -75,6 +76,7 @@ zip = "0.6.6"
 
 # internal dependencies
 air = { path = "air" }
+repair = { path = "repair" }
 cargo-verus-toolchains = { path = "cargo-verus-toolchains" }
 internals_interface = { path = "tools/internals_interface" }
 rustc_mir_build_verus = { path = "rustc_mir_build", package = "rustc_mir_build" }

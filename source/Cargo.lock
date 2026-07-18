@@ -2122,6 +2122,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
+name = "repair"
+version = "0.1.0"
+dependencies = [
+ "air",
+ "serde",
+ "serde_json",
+ "vir",
+]
+
+[[package]]
 name = "reqwest"
 version = "0.12.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2174,6 +2184,7 @@ dependencies = [
  "num-bigint",
  "num-format",
  "regex",
+ "repair",
  "rust_verify_test_macros",
  "rustc_mir_build",
  "serde",

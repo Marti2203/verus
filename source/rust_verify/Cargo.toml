@@ -7,6 +7,7 @@ edition = "2024"
 
 [dependencies]
 air = { workspace = true }
+repair = { workspace = true }
 bincode = { workspace = true }
 console = { workspace = true }
 getopts = { git = "https://github.com/utaal/getopts.git", branch = "parse-partial" }
