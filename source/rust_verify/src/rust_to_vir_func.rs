@@ -1653,6 +1653,16 @@ pub(crate) fn check_item_fn<'tcx>(
             let Body { params, value: _ } = body;
             let mut ps = Vec::new();
             for Param { hir_id, pat, ty_span: _, span } in params.iter() {
+                // An ident-subpattern (`a @ b: T`) binds both `a` and `b`, but
+                // `pat_to_mut_var` below only ever returns `a` - `b` would
+                // silently never get registered, then panic later in
+                // mode-checking the first time the body referenced it.
+                if let rustc_hir::PatKind::Binding(_, _, _, Some(_)) = pat.kind {
+                    return err_span(
+                        *span,
+                        "ident subpatterns (`name @ pattern`) are not supported in parameter position",
+                    );
+                }
                 let (is_mut_var, name) = pat_to_mut_var(pat)?;
                 // is_mut_var: means a parameter is like `mut x: X`
                 // is_mut: means a parameter is like `x: &mut X` or `x: Tracked<&mut X>`
