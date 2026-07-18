@@ -159,6 +159,20 @@ fn check_z3_version_or_exit(executable: &str) {
     }
 }
 
+/// Runs the Z3 version check as early as possible - meant to be called
+/// once, up front, before any parsing/type-checking/VIR construction work
+/// even starts (e.g. from `rust_verify`'s `main`), rather than only lazily
+/// on the first `SmtProcess::launch` (which happens well after a whole
+/// crate's worth of work, wasting that time before the same, now-inevitable
+/// failure). `SmtProcess::launch` itself still calls the same check too -
+/// this early call is a pure head start for the common single-Z3-process
+/// case, not a replacement for it (e.g. a `--multiple-provers`-style setup,
+/// if one is ever added, would still want the check at each launch site).
+pub fn check_z3_version_early() {
+    let solver_info = SolverInfo::new(&SmtSolver::Z3);
+    check_z3_version_or_exit(&solver_info.executable());
+}
+
 impl SmtProcess {
     pub fn launch(solver: &SmtSolver, transcript_log: Option<Box<dyn std::io::Write>>) -> Self {
         let solver_info = SolverInfo::new(solver);

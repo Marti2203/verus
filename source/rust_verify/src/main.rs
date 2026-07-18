@@ -117,6 +117,17 @@ pub fn main() {
         return;
     }
 
+    // Check Z3's version as early as possible - before any parsing/type-
+    // checking/VIR work starts, not just lazily on the first real query
+    // (`SmtProcess::launch` already checks too, but by then a whole crate's
+    // worth of work has already run for what would be the same, now-
+    // inevitable failure). Skipped when verification itself is skipped
+    // (`--no-verify`) or when using a non-Z3 solver, matching exactly when
+    // Z3 would otherwise never even be launched.
+    if !our_args.no_verify && matches!(our_args.solver, air::context::SmtSolver::Z3) {
+        air::smt_process::check_z3_version_early();
+    }
+
     let via_cargo_compile = via_cargo
         .as_ref()
         .map(|args| rust_verify::cargo_verus::is_compile(args, &mut dep_tracker))
