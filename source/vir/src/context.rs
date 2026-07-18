@@ -35,24 +35,13 @@ pub struct ChosenTriggers {
     pub manual: bool,
 }
 
-/// The same quantifier can independently re-elaborate more than once for the
-/// same span (e.g. a function's own postcondition check vs. the fact assumed
-/// at call sites). Most repeats are exact duplicates and safe to drop, but a
-/// real minority genuinely differ - not from random tie-breaking, but from
-/// distinct variable *incarnations* (e.g. `m1!` vs. `old(m1!)` for a `&mut`
-/// param checked in two contexts). Confirmed directly against a real `vstd`
-/// build: 879 spans re-elaborated, 766 exact duplicates, 113 genuinely
-/// different. Dedup by full content, not by span alone, so a span with
-/// distinct trigger choices keeps every one instead of arbitrarily keeping
-/// just the first.
-///
-/// The content comparison must use each trigger term's *rendered* position
-/// (`Span::as_string`) and text, not the term's raw `Span` itself - a fresh
-/// `Span` (with its own internal id/data) is minted on every elaboration
-/// even when the visible text is byte-for-byte identical, which would
-/// otherwise make every re-elaboration look "different" and defeat this
-/// dedup entirely. Caught by a real end-to-end test, not the unit tests
-/// (whose hand-built fixture spans didn't vary that way).
+/// The same quantifier can re-elaborate more than once for the same span; a
+/// real minority of repeats genuinely differ (distinct variable
+/// incarnations, e.g. `m1!` vs. `old(m1!)`), so dedup by full content, not
+/// span alone - keeping every distinct report instead of arbitrarily just
+/// the first. Compares each trigger term's *rendered* text, not its raw
+/// `Span` (a fresh `Span` is minted per elaboration even when the text is
+/// identical, which would otherwise defeat this entirely).
 fn dedup_chosen_triggers_by_span<'a>(
     all: impl Iterator<Item = &'a ChosenTriggers>,
 ) -> Vec<ChosenTriggers> {
