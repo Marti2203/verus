@@ -51,6 +51,7 @@ mod fn_call_to_vir;
 mod hir_hide_reveal_rewrite;
 mod import_export;
 pub mod profiler;
+mod repair_emit;
 mod resolve_traits;
 pub mod reveal_hide;
 mod rust_intrinsics_to_vir;
@@ -63,7 +64,6 @@ pub mod rust_to_vir_func;
 pub mod rust_to_vir_global;
 mod rust_to_vir_impl;
 pub mod rust_to_vir_trait;
-mod repair_emit;
 #[cfg(feature = "singular")]
 pub mod singular;
 mod spans;

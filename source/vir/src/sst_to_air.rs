@@ -2497,7 +2497,12 @@ fn stm_to_stmts(ctx: &Ctx, state: &mut State, stm: &Stm) -> Result<Vec<Stmt>, Vi
                     )?;
                     let expr = exp_to_expr(ctx, &dec_exp, expr_ctxt)?;
                     let error = error(&stm.span, crate::def::DEC_FAIL_LOOP_CONTINUE);
-                    let dec_stmt = StmtX::Assert(State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter), error, None, expr);
+                    let dec_stmt = StmtX::Assert(
+                        State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter),
+                        error,
+                        None,
+                        expr,
+                    );
                     stmts.push(Arc::new(dec_stmt));
                 }
             }
@@ -2765,7 +2770,12 @@ fn stm_to_stmts(ctx: &Ctx, state: &mut State, stm: &Stm) -> Result<Vec<Stmt>, Vi
                     if let Some(msg) = msg {
                         error = error.secondary_label(span, &**msg);
                     }
-                    let inv_stmt = StmtX::Assert(State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter), error, None, inv.clone());
+                    let inv_stmt = StmtX::Assert(
+                        State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter),
+                        error,
+                        None,
+                        inv.clone(),
+                    );
                     air_body.push(Arc::new(inv_stmt));
                 }
                 if decrease.len() > 0 {
@@ -2778,7 +2788,12 @@ fn stm_to_stmts(ctx: &Ctx, state: &mut State, stm: &Stm) -> Result<Vec<Stmt>, Vi
                     )?;
                     let expr = exp_to_expr(ctx, &dec_exp, expr_ctxt)?;
                     let error = error(&stm.span, crate::def::DEC_FAIL_LOOP_END);
-                    let dec_stmt = StmtX::Assert(State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter), error, None, expr);
+                    let dec_stmt = StmtX::Assert(
+                        State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter),
+                        error,
+                        None,
+                        expr,
+                    );
                     air_body.push(Arc::new(dec_stmt));
                 }
             }
@@ -2829,7 +2844,12 @@ fn stm_to_stmts(ctx: &Ctx, state: &mut State, stm: &Stm) -> Result<Vec<Stmt>, Vi
                     if let Some(msg) = msg {
                         error = error.secondary_label(span, &**msg);
                     }
-                    let inv_stmt = StmtX::Assert(State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter), error, None, inv.clone());
+                    let inv_stmt = StmtX::Assert(
+                        State::next_synthetic_assert_id(&mut state.synthetic_assert_id_counter),
+                        error,
+                        None,
+                        inv.clone(),
+                    );
                     stmts.push(Arc::new(inv_stmt));
                 }
             }

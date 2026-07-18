@@ -60,7 +60,12 @@ pub fn translate_expr(expr: &Expr) -> String {
         ExprX::Binary(op, l, r) => translate_binary(op, l, r),
         ExprX::Multi(op, es) => translate_multi(op, es),
         ExprX::IfElse(c, t, f) => {
-            format!("if {} {{ {} }} else {{ {} }}", translate_expr(c), translate_expr(t), translate_expr(f))
+            format!(
+                "if {} {{ {} }} else {{ {} }}",
+                translate_expr(c),
+                translate_expr(t),
+                translate_expr(f)
+            )
         }
         ExprX::Array(es) => format!("[{}]", translate_args(es)),
         ExprX::Bind(bind, body) => translate_bind(bind, body),
@@ -123,7 +128,10 @@ fn translate_multi(op: &MultiOp, es: &[Expr]) -> String {
     };
     match infix {
         Some(op) => {
-            format!("({})", es.iter().map(translate_expr).collect::<Vec<_>>().join(&format!(" {op} ")))
+            format!(
+                "({})",
+                es.iter().map(translate_expr).collect::<Vec<_>>().join(&format!(" {op} "))
+            )
         }
         None => format!("{op:?}({})", translate_args(es)),
     }
@@ -328,11 +336,16 @@ mod tests {
         // to an anonymous impl-block index (`vstd!set.impl&%0.len.?`) rather
         // than the type name, which a rename would misleadingly dress up as
         // a real path.
-        let expr = Arc::new(ExprX::Apply(Arc::new("vstd!seq.Seq.len.?".to_string()), Arc::new(vec![var("r!")])));
+        let expr = Arc::new(ExprX::Apply(
+            Arc::new("vstd!seq.Seq.len.?".to_string()),
+            Arc::new(vec![var("r!")]),
+        ));
         assert_eq!(translate_expr(&expr), "seq.Seq.len.?(r)");
 
-        let opaque_impl_expr =
-            Arc::new(ExprX::Apply(Arc::new("vstd!set.impl&%0.len.?".to_string()), Arc::new(vec![var("s!")])));
+        let opaque_impl_expr = Arc::new(ExprX::Apply(
+            Arc::new("vstd!set.impl&%0.len.?".to_string()),
+            Arc::new(vec![var("s!")]),
+        ));
         assert_eq!(translate_expr(&opaque_impl_expr), "set.impl&%0.len.?(s)");
     }
 }

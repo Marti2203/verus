@@ -1807,7 +1807,9 @@ impl Verifier {
                                         .x
                                         .pars
                                         .iter()
-                                        .map(|p| format!("{}{}", p.x.name.0, vir::def::SUFFIX_PARAM))
+                                        .map(|p| {
+                                            format!("{}{}", p.x.name.0, vir::def::SUFFIX_PARAM)
+                                        })
                                         .collect();
                                     let expansion_tree = func_check_sst.as_ref().and_then(|fsst| {
                                         function_opgen.compute_expansion_tree(

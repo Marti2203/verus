@@ -67,7 +67,10 @@ pub fn scope_for_assert_step(
 /// `vir::def::SUFFIX_PARAM` (`x` -> `x!`) for names not in `scope` - the
 /// convention for a variable that's never been reassigned (a function
 /// parameter, referenced in its original incarnation throughout).
-pub fn align_patch(surface_text: &str, scope: &HashMap<String, String>) -> Result<Expr, AlignError> {
+pub fn align_patch(
+    surface_text: &str,
+    scope: &HashMap<String, String>,
+) -> Result<Expr, AlignError> {
     let parsed = parser::parse(surface_text).map_err(AlignError::Parse)?;
     Ok(align_surface_expr(&parsed, scope))
 }
@@ -76,7 +79,9 @@ fn align_surface_expr(expr: &parser::SurfaceExpr, scope: &HashMap<String, String
     use parser::SurfaceExpr as S;
     match expr {
         S::Bool(b) => std::sync::Arc::new(ExprX::Const(Constant::Bool(*b))),
-        S::Number(n) => std::sync::Arc::new(ExprX::Const(Constant::Nat(std::sync::Arc::new(n.clone())))),
+        S::Number(n) => {
+            std::sync::Arc::new(ExprX::Const(Constant::Nat(std::sync::Arc::new(n.clone()))))
+        }
         S::Ident(name) => {
             let incarnated = scope
                 .get(name)
@@ -109,7 +114,8 @@ fn align_surface_expr(expr: &parser::SurfaceExpr, scope: &HashMap<String, String
             std::sync::Arc::new(ExprX::Unary(unary_op, inner))
         }
         S::Chain(op, operands) => {
-            let operands: Vec<Expr> = operands.iter().map(|o| align_surface_expr(o, scope)).collect();
+            let operands: Vec<Expr> =
+                operands.iter().map(|o| align_surface_expr(o, scope)).collect();
             build_chain(op, operands)
         }
     }
@@ -182,8 +188,7 @@ mod parser {
         Bang,
     }
 
-    const MULTI_CHAR_OPS: &[&str] =
-        &["==>", "==", "<=", ">=", "<<", ">>", "&&", "||"];
+    const MULTI_CHAR_OPS: &[&str] = &["==>", "==", "<=", ">=", "<<", ">>", "&&", "||"];
     const SINGLE_CHAR_OPS: &[char] = &['<', '>', '+', '-', '*', '/', '%', '^', '&', '|'];
 
     fn tokenize(input: &str) -> Result<Vec<Token>, String> {
@@ -290,7 +295,9 @@ mod parser {
                         let inner = match peek(tokens, *pos) {
                             Some(Token::Ident(n)) => n.clone(),
                             other => {
-                                return Err(format!("expected identifier inside old(...), got {other:?}"));
+                                return Err(format!(
+                                    "expected identifier inside old(...), got {other:?}"
+                                ));
                             }
                         };
                         *pos += 1;
@@ -336,7 +343,8 @@ mod parser {
                     }
                 }
                 expect(tokens, pos, &Token::RParen)?;
-                let op = op.ok_or_else(|| "empty parenthesized group has no operator".to_string())?;
+                let op =
+                    op.ok_or_else(|| "empty parenthesized group has no operator".to_string())?;
                 Ok(SurfaceExpr::Chain(op, operands))
             }
             other => Err(format!("unexpected token {other:?} at position {}", *pos)),

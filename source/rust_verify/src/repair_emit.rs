@@ -196,9 +196,10 @@ pub fn emit_repair_facts(
                     repair::windows::compute_windows(&incarnated_query.assertion, assert_id)
                 {
                     all_windows.extend(
-                        windows
-                            .into_iter()
-                            .map(|w| WindowFact { step_index: w.step_index, step_kind: w.step_kind }),
+                        windows.into_iter().map(|w| WindowFact {
+                            step_index: w.step_index,
+                            step_kind: w.step_kind,
+                        }),
                     );
                 }
                 if let Ok(deps) = repair::dependencies::compute_dependencies(
@@ -214,11 +215,13 @@ pub fn emit_repair_facts(
                 )
                 .unwrap_or_default();
                 let target_expr =
-                    repair::windows::target_assertion_expr(&incarnated_query.assertion, assert_id).ok();
+                    repair::windows::target_assertion_expr(&incarnated_query.assertion, assert_id)
+                        .ok();
                 let target_vars: Vec<String> = target_expr
                     .as_ref()
                     .map(|e| {
-                        let mut v: Vec<String> = repair::dependencies::free_vars(e).into_iter().collect();
+                        let mut v: Vec<String> =
+                            repair::dependencies::free_vars(e).into_iter().collect();
                         v.sort();
                         v
                     })
@@ -246,7 +249,12 @@ pub fn emit_repair_facts(
                         .iter()
                         .filter_map(|v| values.get(v).map(|val| (v.clone(), val.clone())))
                         .collect();
-                    HardConstraintFact { step_index: c.step_index, kind: c.kind, text: c.text, counterexample }
+                    HardConstraintFact {
+                        step_index: c.step_index,
+                        kind: c.kind,
+                        text: c.text,
+                        counterexample,
+                    }
                 }));
 
                 if let Some(expr) = &target_expr {
@@ -316,11 +324,13 @@ fn compute_other_target(
             if let CommandX::CheckValid(query) = &**command {
                 let (incarnated_query, _snapshots, _decls) = air::var_to_const::lower_query(query);
                 let target_expr =
-                    repair::windows::target_assertion_expr(&incarnated_query.assertion, assert_id).ok();
+                    repair::windows::target_assertion_expr(&incarnated_query.assertion, assert_id)
+                        .ok();
                 let target_vars: Vec<String> = target_expr
                     .as_ref()
                     .map(|e| {
-                        let mut v: Vec<String> = repair::dependencies::free_vars(e).into_iter().collect();
+                        let mut v: Vec<String> =
+                            repair::dependencies::free_vars(e).into_iter().collect();
                         v.sort();
                         v
                     })
@@ -342,11 +352,7 @@ fn compute_other_target(
             }
         }
     }
-    OtherTargetFact {
-        assert_id: (**assert_id).clone(),
-        target_assertion,
-        target_counterexample,
-    }
+    OtherTargetFact { assert_id: (**assert_id).clone(), target_assertion, target_counterexample }
 }
 
 fn flatten_expansion_tree(
@@ -368,7 +374,10 @@ fn flatten_expansion_tree(
         vir::expand_errors::ExpansionTree::Leaf(_assert_id, exp, can_expand_further) => {
             out.push(ExpansionFact {
                 introductions: path.clone(),
-                can_expand_further: matches!(can_expand_further, vir::expand_errors::CanExpandFurther::Yes),
+                can_expand_further: matches!(
+                    can_expand_further,
+                    vir::expand_errors::CanExpandFurther::Yes
+                ),
                 leaf: format!("{:?}", exp),
             });
         }
