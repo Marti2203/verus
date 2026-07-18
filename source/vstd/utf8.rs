@@ -512,6 +512,46 @@ pub proof fn lemma_encode_utf8_push_len(chars: Seq<char>, c: char)
     assert(encode_utf8(seq![c]).len() == encode_scalar(c as u32).len());
 }
 
+/// The `encode_utf8` byte length of a growing prefix never decreases - lets
+/// callers conclude an ordering on byte offsets from an ordering on the
+/// character indices that produced them (and vice versa), without needing
+/// to re-derive it from [`lemma_encode_utf8_len_additive`] by hand each time.
+pub proof fn lemma_encode_utf8_len_monotonic(s: Seq<char>, i: int, j: int)
+    requires
+        0 <= i <= j <= s.len(),
+    ensures
+        encode_utf8(s.subrange(0, i)).len() <= encode_utf8(s.subrange(0, j)).len(),
+{
+    assert(s.subrange(0, i) + s.subrange(i, j) =~= s.subrange(0, j));
+    lemma_encode_utf8_len_additive(s.subrange(0, i), s.subrange(i, j));
+}
+
+/// A nonempty `char` sequence always encodes to at least one byte - every
+/// `encode_scalar` branch (1, 2, 3, or 4 bytes) is nonempty.
+pub proof fn lemma_encode_utf8_len_pos(s: Seq<char>)
+    requires
+        s.len() > 0,
+    ensures
+        encode_utf8(s).len() >= 1,
+{
+}
+
+/// The strict form of [`lemma_encode_utf8_len_monotonic`] - a growing prefix
+/// by at least one more character always encodes to strictly more bytes,
+/// since every character contributes at least one. Lets callers rule out
+/// "same byte offset, different character index" by contradiction.
+pub proof fn lemma_encode_utf8_len_strictly_monotonic(s: Seq<char>, i: int, j: int)
+    requires
+        0 <= i < j <= s.len(),
+    ensures
+        encode_utf8(s.subrange(0, i)).len() < encode_utf8(s.subrange(0, j)).len(),
+{
+    assert(s.subrange(0, i) + s.subrange(i, j) =~= s.subrange(0, j));
+    lemma_encode_utf8_len_additive(s.subrange(0, i), s.subrange(i, j));
+    assert(s.subrange(i, j).len() == j - i);
+    lemma_encode_utf8_len_pos(s.subrange(i, j));
+}
+
 /* Correspondence between encode_utf8 and decode_utf8 definitions */
 
 // Performing encode followed by decode on a scalar with a 1-byte UTF-8 encoding results in the same value.
