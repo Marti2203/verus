@@ -569,3 +569,40 @@ test_verify_one_file! {
         }
     } => Ok(())
 }
+
+// verus-lang/verus#2674: RangeInclusive::end_bound's assume_specification
+// unconditionally claimed Included, even once the range's iterator is
+// exhausted - real Rust returns Excluded in that case (confirmed directly
+// against rustc). A fresh, untouched range's end bound is still Included.
+test_verify_one_file! {
+    #[test] test_range_inclusive_fresh_end_bound_is_included verus_code! {
+        use vstd::prelude::*;
+        use std::ops::{Bound, RangeBounds};
+
+        fn test() {
+            let r = 1u8..=5u8;
+            let end_is_included = match r.end_bound() {
+                Bound::Included(_) => true,
+                _ => false,
+            };
+            assert(end_is_included);
+        }
+    } => Ok(())
+}
+
+test_verify_one_file! {
+    #[test] test_range_inclusive_exhausted_end_bound_is_not_always_included verus_code! {
+        use vstd::prelude::*;
+        use std::ops::{Bound, RangeBounds};
+
+        fn test() {
+            let mut r = 1u8..=1u8;
+            let _ = r.next();
+            let end_is_included = match r.end_bound() {
+                Bound::Included(_) => true,
+                _ => false,
+            };
+            assert(end_is_included); // FAILS
+        }
+    } => Err(err) => assert_one_fails(err)
+}

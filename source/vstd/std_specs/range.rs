@@ -343,11 +343,19 @@ pub assume_specification<'s, T>[ <RangeInclusive<T> as RangeBounds<T>>::start_bo
         spec_bound(result) == SpecBound::Included(&range@.start),
 ;
 
+// Real Rust's `end_bound()` returns `Excluded(&self.end)` once the range's
+// iterator is exhausted (confirmed directly against real rustc: a range
+// with an inverted start > end but never iterated still reports
+// `Included`, so it's specifically the `exhausted` flag that gates this,
+// not `is_empty()`/an inverted range in general) - the unconditional
+// `Included` below let Verus prove things about an exhausted range's end
+// bound that don't hold at runtime (verus-lang/verus#2674).
 pub assume_specification<'s, T>[ <RangeInclusive<T> as RangeBounds<T>>::end_bound ](
     range: &'s RangeInclusive<T>,
 ) -> (result: Bound<&'s T>)
     ensures
-        spec_bound(result) == SpecBound::Included(&range@.end),
+        range@.exhausted ==> spec_bound(result) == SpecBound::Excluded(&range@.end),
+        !range@.exhausted ==> spec_bound(result) == SpecBound::Included(&range@.end),
 ;
 
 pub assume_specification<'s, T>[ <RangeToInclusive<T> as RangeBounds<T>>::start_bound ](
