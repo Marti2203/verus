@@ -637,7 +637,6 @@ test_verify_one_file! {
     } => Err(err) => assert_one_fails(err)
 }
 
-// RangeInclusive::is_empty had no vstd spec before this.
 test_verify_one_file! {
     #[test] test_range_inclusive_is_empty_fresh_range_is_not_empty verus_code! {
         use vstd::prelude::*;
