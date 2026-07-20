@@ -170,10 +170,8 @@ pub fn str_starts_with_str(s: &str, pat: &str) -> (res: bool)
 #[verifier::external_body]
 pub fn str_ends_with_str(s: &str, pat: &str) -> (res: bool)
     ensures
-        res == (pat@.len() <= s@.len() && s@.subrange(
-            s@.len() - pat@.len(),
-            s@.len() as int,
-        ) =~= pat@),
+        res == (pat@.len() <= s@.len() && s@.subrange(s@.len() - pat@.len(), s@.len() as int)
+            =~= pat@),
 {
     s.ends_with(pat)
 }
