@@ -608,7 +608,7 @@ test_verify_one_file! {
 }
 
 test_verify_one_file! {
-    #[test] test_slice_range_end_of_exhausted_range_inclusive_is_exclusive verus_code! {
+    #[test] test_slice_range_end_treats_exhausted_range_as_excluded verus_code! {
         use std::ops::RangeInclusive;
         use vstd::prelude::*;
         use vstd::std_specs::range::{slice_range_end, RangeInclusiveView};
@@ -623,7 +623,7 @@ test_verify_one_file! {
 }
 
 test_verify_one_file! {
-    #[test] test_slice_range_end_of_exhausted_range_inclusive_is_not_inclusive verus_code! {
+    #[test] test_slice_range_end_treats_exhausted_range_rejects_included verus_code! {
         use std::ops::RangeInclusive;
         use vstd::prelude::*;
         use vstd::std_specs::range::{slice_range_end, RangeInclusiveView};
