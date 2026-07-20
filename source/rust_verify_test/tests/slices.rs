@@ -607,10 +607,6 @@ test_verify_one_file! {
     } => Err(err) => assert_one_fails(err)
 }
 
-// The same exhaustion-dependent bound feeds slice_range_end (and so
-// <[T]>::copy_within's own pre/postcondition) via a separate spec path
-// (RangeBoundsSpecImpl, not the assume_specification above) - confirmed
-// this needed its own fix, not just the assume_specification one.
 test_verify_one_file! {
     #[test] test_slice_range_end_of_exhausted_range_inclusive_is_exclusive verus_code! {
         use std::ops::RangeInclusive;
@@ -639,4 +635,72 @@ test_verify_one_file! {
             assert(slice_range_end(&r, 5) == 3); // FAILS
         }
     } => Err(err) => assert_one_fails(err)
+}
+
+// RangeInclusive::is_empty had no vstd spec before this.
+test_verify_one_file! {
+    #[test] test_range_inclusive_is_empty_fresh_range_is_not_empty verus_code! {
+        use vstd::prelude::*;
+
+        fn test() {
+            let r = 1u8..=5u8;
+            let empty = r.is_empty();
+            assert(!empty);
+        }
+    } => Ok(())
+}
+
+test_verify_one_file! {
+    #[test] test_range_inclusive_is_empty_after_exhausted verus_code! {
+        use vstd::prelude::*;
+
+        fn test() {
+            let mut r = 1u8..=1u8;
+            let _ = r.next();
+            let empty = r.is_empty();
+            assert(empty);
+        }
+    } => Ok(())
+}
+
+test_verify_one_file! {
+    #[test] test_range_inclusive_is_empty_start_le_end_is_not_sufficient verus_code! {
+        use vstd::prelude::*;
+
+        fn test() {
+            let mut r = 1u8..=1u8;
+            let _ = r.next();
+            let empty = r.is_empty();
+            assert(!empty); // FAILS: exhausted despite start <= end
+        }
+    } => Err(err) => assert_one_fails(err)
+}
+
+test_verify_one_file! {
+    #[test] test_spec_range_inclusive_is_empty_matches_real_behavior verus_code! {
+        use std::ops::RangeInclusive;
+        use vstd::prelude::*;
+        use vstd::std_specs::range::{spec_range_inclusive_is_empty, RangeInclusiveView};
+
+        proof fn test_fresh(r: RangeInclusive<u8>)
+            requires
+                r@ == (RangeInclusiveView { start: 1u8, end: 5u8, exhausted: false }),
+        {
+            assert(!spec_range_inclusive_is_empty(&r));
+        }
+
+        proof fn test_exhausted(r: RangeInclusive<u8>)
+            requires
+                r@ == (RangeInclusiveView { start: 1u8, end: 1u8, exhausted: true }),
+        {
+            assert(spec_range_inclusive_is_empty(&r));
+        }
+
+        proof fn test_inverted(r: RangeInclusive<u8>)
+            requires
+                r@ == (RangeInclusiveView { start: 5u8, end: 1u8, exhausted: false }),
+        {
+            assert(spec_range_inclusive_is_empty(&r));
+        }
+    } => Ok(())
 }

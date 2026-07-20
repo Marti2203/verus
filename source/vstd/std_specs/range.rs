@@ -88,6 +88,22 @@ pub assume_specification<Idx: PartialOrd<Idx>, U>[ RangeInclusive::<Idx>::contai
             == r.contains_spec(i),
 ;
 
+// A range is empty once its iterator is exhausted, or if it was never valid
+// to begin with (start > end).
+pub open spec fn spec_range_inclusive_is_empty<Idx: PartialOrd<Idx>>(
+    r: &RangeInclusive<Idx>,
+) -> bool {
+    !r@.start.is_le(&r@.end) || r@.exhausted
+}
+
+pub assume_specification<Idx: PartialOrd<Idx>>[ RangeInclusive::<Idx>::is_empty ](
+    r: &RangeInclusive<Idx>,
+) -> (res: bool) where Idx: PartialOrd<Idx>
+    ensures
+        <Idx as PartialOrdSpec<Idx>>::obeys_partial_cmp_spec() ==> res
+            == spec_range_inclusive_is_empty(r),
+;
+
 // To allow reasoning about the returned range when the executable
 // function `RangeInclusive::new()` is invoked in a `for` loop header
 // (e.g., in `for x in it: start..=end { ... }`), we need to specify the
