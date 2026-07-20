@@ -452,7 +452,11 @@ impl<T> RangeBoundsSpecImpl<T> for RangeInclusive<T> {
     }
 
     open spec fn spec_end_bound(&self) -> SpecBound<&T> {
-        SpecBound::Included(&self@.end)
+        if self@.exhausted {
+            SpecBound::Excluded(&self@.end)
+        } else {
+            SpecBound::Included(&self@.end)
+        }
     }
 }
 
@@ -530,7 +534,11 @@ impl<T> RangeBoundsSpecImpl<T> for RangeInclusive<&T> {
     }
 
     open spec fn spec_end_bound(&self) -> SpecBound<&T> {
-        SpecBound::Included(self@.end)
+        if self@.exhausted {
+            SpecBound::Excluded(self@.end)
+        } else {
+            SpecBound::Included(self@.end)
+        }
     }
 }
 

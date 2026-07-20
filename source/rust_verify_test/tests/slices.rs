@@ -606,3 +606,37 @@ test_verify_one_file! {
         }
     } => Err(err) => assert_one_fails(err)
 }
+
+// The same exhaustion-dependent bound feeds slice_range_end (and so
+// <[T]>::copy_within's own pre/postcondition) via a separate spec path
+// (RangeBoundsSpecImpl, not the assume_specification above) - confirmed
+// this needed its own fix, not just the assume_specification one.
+test_verify_one_file! {
+    #[test] test_slice_range_end_of_exhausted_range_inclusive_is_exclusive verus_code! {
+        use std::ops::RangeInclusive;
+        use vstd::prelude::*;
+        use vstd::std_specs::range::{slice_range_end, RangeInclusiveView};
+
+        proof fn test(r: RangeInclusive<usize>)
+            requires
+                r@ == (RangeInclusiveView { start: 2, end: 2, exhausted: true }),
+        {
+            assert(slice_range_end(&r, 5) == 2);
+        }
+    } => Ok(())
+}
+
+test_verify_one_file! {
+    #[test] test_slice_range_end_of_exhausted_range_inclusive_is_not_inclusive verus_code! {
+        use std::ops::RangeInclusive;
+        use vstd::prelude::*;
+        use vstd::std_specs::range::{slice_range_end, RangeInclusiveView};
+
+        proof fn test(r: RangeInclusive<usize>)
+            requires
+                r@ == (RangeInclusiveView { start: 2, end: 2, exhausted: true }),
+        {
+            assert(slice_range_end(&r, 5) == 3); // FAILS
+        }
+    } => Err(err) => assert_one_fails(err)
+}
